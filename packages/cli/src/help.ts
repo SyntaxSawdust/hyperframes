@@ -35,6 +35,7 @@ const GROUPS: Group[] = [
       ["lint", "Validate a composition for common mistakes"],
       ["beats", "Detect beats in the music track and write beats/<audio>.json"],
       ["inspect", "Inspect rendered visual layout across the timeline"],
+      ["keyframes", "Inspect keyframes and render onion-shot diagnostics"],
       ["snapshot", "Capture key frames as PNG screenshots for visual verification"],
       ["info", "Print project metadata"],
       ["compositions", "List all compositions in a project"],
