@@ -67,6 +67,12 @@ export interface FontFileMetadata {
   variationAxes: string[];
   /** Whether identification came from the binary name table (the trustworthy source). */
   identified: boolean;
+  /**
+   * True when this is an ICON font — it has no basic Latin letters, or its glyphs live mostly in
+   * the Unicode Private Use Area (Font Awesome, swiper-icons, a custom "hushly" icon set, …).
+   * Consumers must NOT treat it as a text family: binding it to one renders headings as tofu/icons.
+   */
+  isIcon: boolean;
 }
 
 export interface FontFamilySummary {
@@ -149,6 +155,7 @@ function readSingleFont(fullPath: string, filename: string): FontFileMetadata {
     style: "normal",
     variationAxes: [],
     identified: false,
+    isIcon: false,
   };
 
   try {
@@ -185,10 +192,41 @@ function readSingleFont(fullPath: string, filename: string): FontFileMetadata {
       style,
       variationAxes,
       identified: true,
+      isIcon: detectIconFont(font),
     };
   } catch {
     return empty;
   }
+}
+
+/**
+ * Detect an ICON font by glyph coverage rather than by name (icon fonts often have arbitrary
+ * names like "hushly" or "swiper-icons" that no name-list can enumerate). The reliable signal is
+ * that its supported code points live mostly in a Unicode Private Use Area (measured: a "hushly"
+ * icon set is 63% PUA; a Font Awesome / swiper-icons set is near-100%). A plain "no Latin letters"
+ * test is NOT used — a text font served as a unicode-range subset (Google/Next.js latin-ext,
+ * cyrillic, …) legitimately lacks 'A' yet has 0% PUA, and must not be misflagged.
+ * `characterSet` is a fontkit runtime member not always in its typings, so it's read through a
+ * narrow local shape.
+ */
+function detectIconFont(font: Font): boolean {
+  const f = font as unknown as { characterSet?: number[] };
+  try {
+    return isIconCharacterSet(Array.isArray(f.characterSet) ? f.characterSet : []);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * An icon font maps most of its glyphs into a Unicode Private Use Area. Threshold at 50%: a
+ * "hushly" icon set measures ~63% PUA and Font-Awesome-style sets approach 100%, while a text
+ * font — even a unicode-range subset with no Latin letters — is ~0% PUA. Exported for testing.
+ */
+export function isIconCharacterSet(characterSet: number[]): boolean {
+  if (!characterSet.length) return false;
+  const inPua = (cp: number) => (cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0x10fffd);
+  return characterSet.filter(inPua).length / characterSet.length > 0.5;
 }
 
 /** Aggregate per-file entries into per-family summaries — most useful shape for DESIGN.md. */
